@@ -8,6 +8,9 @@
     .row::after { content: ""; clear: both; display: table; }
     label.highlight { background-color: #ffff99; }
     #result p { font-size: 20px; color: blue; }
+    @media screen and (max-width: 768px) {
+      .column { width: 100%; }
+    }
   </style>
 </head>
 <body onload="generateForms()">
@@ -22,7 +25,24 @@
 <h2>필요한 준비물</h2>
 <div id="result"></div>
 <script>
-// JavaScript 전체 코드 삽입 필요
+// 전체 스크립트 생략된 상태 - 실제 배포 시 전체 JavaScript 코드 삽입 필요
+function highlight(id) {
+  const label = document.getElementById(`label-${id}`);
+  const input = document.getElementById(id);
+  const checked = input?.checked ||
+    document.getElementById(`${id}_양측`)?.checked ||
+    document.getElementById(`${id}_편측`)?.checked ||
+    document.getElementById(`${id}_플러스`)?.checked ||
+    document.getElementById(`${id}_마이너스`)?.checked;
+
+  const dropdownValue = input?.tagName === 'SELECT' ? input.value : null;
+
+  if (checked || dropdownValue) {
+    label.classList.add('highlight');
+  } else {
+    label.classList.remove('highlight');
+  }
+}
 </script>
 </body>
 </html>
