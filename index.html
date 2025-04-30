@@ -3,18 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <title>본척척 주사준비 시뮬레이터</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    .column { float: left; width: 24%; padding: 10px; }
+    .column { float: left; width: 24%; padding: 10px; box-sizing: border-box; }
     .row::after { content: ""; clear: both; display: table; }
     label.highlight { background-color: #ffff99; }
-    #result p { font-size: 20px; color: blue; }
+    #result p { font-size: 18px; color: blue; }
     @media screen and (max-width: 768px) {
       .column { width: 100%; }
     }
   </style>
 </head>
 <body onload="generateForms()">
-<h1>💉 본체체 주사준비 시뮬레이터</h1>
+<h1>💉 본척척 주사준비 시뮬레이터</h1>
 <div class="row">
   <div class="column"><h2>L 계열</h2><form id="L-group"></form></div>
   <div class="column"><h2>C 계열</h2><form id="C-group"></form></div>
@@ -25,7 +26,45 @@
 <h2>필요한 준비물</h2>
 <div id="result"></div>
 <script>
-// 전체 스크립트 생략된 상태 - 실제 배포 시 전체 JavaScript 코드 삽입 필요
+// 처방 그룹
+const prescriptions = {
+  L: ['L-MBB', 'L-FJB', 'T-MBB', 'T-FJB', 'EPI', 'TF', 'PCB', 'S1', 'CAUDAL'],
+  C: ['C-MBB', 'C-FJB'],
+  AG: ['SHOULDER AG', 'ELBOW AG', 'WRIST AG', 'ANKLE AG', 'KNEE AG', 'HIP AG'],
+  TPI: ['PIRI', 'TPI']
+};
+const groups = ['L', 'C', 'AG', 'TPI'];
+
+// 드롭다운 및 체크박스 생성
+function generateForms() {
+  groups.forEach(group => {
+    const form = document.getElementById(`${group}-group`);
+    prescriptions[group].forEach(presc => {
+      if (['L-MBB', 'L-FJB', 'T-MBB', 'T-FJB', 'C-MBB', 'C-FJB'].includes(presc)) {
+        form.innerHTML += `<label id="label-${presc}">${presc}<select id="${presc}" onchange="highlight('${presc}')">
+          <option value="">부위 선택</option>
+          <option value="양측3">양측 3레벨</option>
+          <option value="양측2">양측 2레벨</option>
+          <option value="편측3">편측 3레벨</option>
+        </select></label><br>`;
+      } else if (['EPI', 'TF', 'PCB', 'S1', 'PIRI', 'TPI'].includes(presc)) {
+        form.innerHTML += `<label id="label-${presc}">${presc}<br>
+          <input type="checkbox" id="${presc}_양측" onchange="highlight('${presc}')"> 양측
+          <input type="checkbox" id="${presc}_편측" onchange="highlight('${presc}')"> 편측
+        </label><br>`;
+      } else if (presc === 'CAUDAL') {
+        form.innerHTML += `<label id="label-${presc}">${presc}<br>
+          <input type="checkbox" id="${presc}_플러스" onchange="highlight('${presc}')"> +
+          <input type="checkbox" id="${presc}_마이너스" onchange="highlight('${presc}')"> -
+        </label><br>`;
+      } else {
+        form.innerHTML += `<label id="label-${presc}"><input type="checkbox" id="${presc}" onchange="highlight('${presc}')"> ${presc}</label><br>`;
+      }
+    });
+  });
+}
+
+// 형광 강조
 function highlight(id) {
   const label = document.getElementById(`label-${id}`);
   const input = document.getElementById(id);
@@ -34,14 +73,72 @@ function highlight(id) {
     document.getElementById(`${id}_편측`)?.checked ||
     document.getElementById(`${id}_플러스`)?.checked ||
     document.getElementById(`${id}_마이너스`)?.checked;
-
   const dropdownValue = input?.tagName === 'SELECT' ? input.value : null;
-
   if (checked || dropdownValue) {
     label.classList.add('highlight');
   } else {
     label.classList.remove('highlight');
   }
+}
+
+// 준비물 계산
+function calculateMaterials() {
+  let needles = { '26G60mm': 0, '29G60mm': 0, '25G38mm': 0, 'epidural 니들': 0, '23G100mm': 0, '25G60mm': 0 };
+  let syringes = { '3cc': 0, '10cc': 0, '10cc T': 0, '10cc D': 0 };
+  let contrastNeed = 0;
+  let clipCount = 0;
+  let sutureNeedleCount = 0;
+  let sutureTrigger = false;
+
+  groups.forEach(group => {
+    prescriptions[group].forEach(presc => {
+      const get = id => document.getElementById(id);
+      if (['L-MBB', 'L-FJB', 'T-MBB', 'T-FJB', 'C-MBB', 'C-FJB'].includes(presc)) {
+        const sel = get(presc)?.value;
+        if (sel) {
+          let side = sel.includes('양측') ? 2 : 1;
+          let levels = sel.includes('3') ? 3 : 2;
+          if (['L-MBB', 'L-FJB', 'T-MBB', 'T-FJB'].includes(presc)) {
+            needles['26G60mm'] += side * levels;
+            syringes['3cc'] += (side * levels * 1.5) / 3;
+            sutureTrigger = true;
+          } else {
+            needles['29G60mm'] += side * levels;
+            syringes['3cc'] += (side * levels * 1.5) / 3;
+            clipCount += 1;
+          }
+          if (presc.includes('FJB')) contrastNeed++;
+        }
+      } else if (presc === 'EPI' && (get(`${presc}_양측`)?.checked || get(`${presc}_편측`)?.checked)) {
+        needles['epidural 니들'] += 1; syringes['10cc'] += 1; contrastNeed++;
+      } else if (presc === 'TF') {
+        if (get(`${presc}_양측`)?.checked) { needles['26G60mm'] += 2; syringes['3cc'] += 2; contrastNeed++; }
+        else if (get(`${presc}_편측`)?.checked) { needles['26G60mm'] += 1; syringes['3cc'] += 1; contrastNeed++; }
+      } else if (['PCB', 'S1'].includes(presc)) {
+        if (get(`${presc}_양측`)?.checked) { needles['23G100mm'] += 2; syringes['10cc'] += 2; }
+        else if (get(`${presc}_편측`)?.checked) { needles['23G100mm'] += 1; syringes['10cc'] += 1; }
+      } else if (presc === 'CAUDAL') {
+        if (get(`${presc}_플러스`)?.checked) { needles['25G38mm'] += 1; syringes['10cc T'] += 1; syringes['10cc D'] += 1; contrastNeed++; }
+        else if (get(`${presc}_마이너스`)?.checked) { needles['25G38mm'] += 1; syringes['10cc D'] += 2; contrastNeed++; }
+      } else if (['PIRI', 'TPI'].includes(presc)) {
+        if (get(`${presc}_양측`)?.checked) { needles['25G60mm'] += 2; syringes['10cc'] += 2; }
+        else if (get(`${presc}_편측`)?.checked) { needles['25G60mm'] += 1; syringes['10cc'] += 1; }
+      } else if (['SHOULDER AG', 'ELBOW AG', 'WRIST AG', 'ANKLE AG', 'KNEE AG'].includes(presc) && get(presc)?.checked) {
+        needles['25G38mm'] += 1; syringes['3cc'] += 1; contrastNeed++;
+      } else if (presc === 'HIP AG' && get(presc)?.checked) {
+        needles['23G100mm'] += 1; syringes['3cc'] += 1; contrastNeed++;
+      }
+    });
+  });
+
+  const finalContrast = contrastNeed >= 3 ? 2 : contrastNeed >= 1 ? 1 : 0;
+  let html = '';
+  for (let [k, v] of Object.entries(needles)) if (v) html += `<p>${k} 니들: ${v}개</p>`;
+  for (let [k, v] of Object.entries(syringes)) if (v) html += `<p>${k} 주사약: ${v}개</p>`;
+  if (finalContrast) html += `<p>조영제: ${finalContrast}개</p>`;
+  if (clipCount) html += `<p>클립: ${clipCount}개</p>`;
+  if (sutureTrigger) html += `<p>돗바늘: 3개</p>`;
+  document.getElementById('result').innerHTML = html;
 }
 </script>
 </body>
